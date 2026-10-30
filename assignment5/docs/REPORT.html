@@ -1,0 +1,27 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Assignment 5 Report</title><style>body{font:11pt Arial,sans-serif;line-height:1.45;margin:2cm;color:#17212b}h1{font-size:22pt}h2{font-size:15pt;margin-top:20pt;color:#174a70}pre{white-space:pre-wrap;background:#f2f5f7;padding:10pt;font-size:9pt}code{font-family:monospace}table{border-collapse:collapse}td,th{padding:5pt;border:1px solid #aaa}</style></head><body>
+<h1>Smart Delivery and Route Optimization Engine</h1><p><b>Assignment 5 — Strategy Pattern</b><br>Student: Nurakhmet Mukhtiar<br>Group: SE-2517<br>Java 17</p>
+<h2>1. Problem and design</h2><p>The logistics system has multiple valid route selection goals: speed, price, environmental impact, and a balanced tradeoff. The Strategy Pattern makes each algorithm interchangeable through RouteStrategy. RoutePlanner is the Context: it stores the abstraction and delegates planning without knowing algorithm details.</p><p>RouteStrategy exposes selectRoute and getStrategyName. Concrete implementations are FastestRouteStrategy, CheapestRouteStrategy, EcoFriendlyRouteStrategy, BalancedRouteStrategy, and SafestRouteStrategy. StrategySelector separately maps request business conditions to strategy factories. RouteDecision explains the winner and records rejection reasons.</p>
+<h2>2. Domain and constraints</h2><p>The domain consists of Route, Location, DeliveryRequest, and DeliveryPriority. Demonstration data contains eight routes. All strategies reject an unavailable route, prohibited hazardous cargo, a route over budget, a route beyond the delivery deadline, and a route over the emissions ceiling. An empty list or a request with no eligible route throws NoSuitableRouteException.</p>
+<h2>3. Strategy formulas</h2><ul><li>Fastest: estimatedMinutes + trafficDelayMinutes.</li><li>Cheapest: baseCost + distanceKm × costPerKm + priority surcharge (+1500 urgent, 0 standard, −200 economy).</li><li>Eco: 0.8 × carbonEmissionKg + 0.2 × distanceKm.</li><li>Balanced: 0.40 × normalizedTime + 0.30 × normalizedCost + 0.10 × normalizedDistance + 0.20 × normalizedEmissions. Each metric is normalized over eligible candidates; constructor weights must be non-negative and sum to 1.0.</li><li>Safest extension: 0.6 × effectiveMinutes + 10 × carbonEmissionKg, used as a clearly labeled educational proxy.</li></ul><p>Eco scoring belongs within its Strategy because environmental preference defines one interchangeable route-ranking behavior; the Context does not need to know its formula.</p>
+<h2>4. Diagrams</h2><p><b>Class diagram:</b> RoutePlanner aggregates RouteStrategy. AbstractRouteStrategy implements RouteStrategy and the five concrete classes extend it. StrategySelector produces a RouteStrategy from DeliveryRequest. Strategies read Route and DeliveryRequest and return RouteDecision. Route contains origin and destination Locations.</p><pre>RoutePlanner ──delegates──> RouteStrategy &lt;&lt;interface&gt;&gt;
+                                  △
+                 AbstractRouteStrategy
+        △       △       △       △       △
+      Fastest Cheapest Eco   Balanced Safest
+
+StrategySelector ──creates──> RouteStrategy
+RouteStrategy ──reads──> Route + DeliveryRequest
+RouteStrategy ──returns──> RouteDecision</pre>
+<p><b>Sequence diagram:</b></p><pre>Client → StrategySelector: select(urgent request)
+StrategySelector → Client: FastestRouteStrategy
+Client → RoutePlanner: setStrategy(fastest)
+Client → RoutePlanner: plan(routes, request)
+RoutePlanner → FastestRouteStrategy: selectRoute(routes, request)
+FastestRouteStrategy → FastestRouteStrategy: filter constraints, rank time + traffic
+FastestRouteStrategy → RoutePlanner: RouteDecision with explanation
+RoutePlanner → Client: RouteDecision</pre>
+<h2>5. Runtime demonstration</h2><p>The demo compares Fastest, Cheapest, Eco, and Balanced on delivery request 105 and switches the same RoutePlanner through Fastest, Eco, and Cheapest. Observed routes: Fastest R2 (22 min), Cheapest R3 (1500 cost units), Eco R3 (score 2.960), Balanced R6 (score 0.256). The selector automatically picks Fastest for an urgent request.</p>
+<h2>6. Strategy and Bridge; SOLID</h2><p>Strategy replaces one behavior at runtime through a common contract. Bridge decouples two independently varying dimensions, usually abstraction and implementation hierarchies. Here the focus is one interchangeable algorithm delegated to by the planner. SRP is shown by separating planning, algorithm selection, and data; OCP is shown by SafestRouteStrategy requiring no change to RoutePlanner; DIP is shown by RoutePlanner's RouteStrategy field.</p>
+<h2>7. Tests and Git</h2><p>The project includes 23 JUnit 5 tests for the four required algorithms, fifth algorithm, switching, automatic selection, hard constraints, budget and deadline boundaries, no-route/empty input failures, invalid weights, invalid domain data, explanation, and comparison. Run <code>mvn test</code>; Maven Surefire reports results in <code>target/surefire-reports/</code>. The Git repository has 11 meaningful commits, with SafestRouteStrategy introduced in its own commit.</p>
+<h2>8. Limitation</h2><p>Route data and coefficients are illustrative and in memory; live traffic, measured emissions, and business-approved score calibration are outside this assignment. The safest score is only an educational proxy.</p>
+</body></html>
